@@ -18,14 +18,6 @@ dependencies:
 library:
   source-dirs: src
 
-executables:
-  unpuzzle-exe:
-    main: Main.hs
-    source-dirs: cli
-    dependencies:
-    - unpuzzle
-    - optparse-applicative
-
 tests:
   tasty:
     main: TestDriver.hs
@@ -35,7 +27,6 @@ tests:
     - hedgehog
     - tasty
     - tasty-discover
-
 
 default-extensions:
 - BlockArguments
