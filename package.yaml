@@ -28,7 +28,7 @@ executables:
 
 tests:
   tasty:
-    main: TestMain.hs
+    main: TestDriver.hs
     source-dirs: test
     dependencies:
     - unpuzzle
