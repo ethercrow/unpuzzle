@@ -22,12 +22,18 @@ data Move = R | U | L | D
 reachableStates :: GameState -> [(Move, GameState)]
 reachableStates g = [(m, g') | m <- universe, g' <- applyMove m g]
 
-replace = _replace
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace from to input = go [] input
+    where
+    go acc rest | from `isPrefixOf` rest = go (acc <> to) (drop (length from) rest)
+    go acc (c : rest) = go (acc <> [c]) rest
+    go acc [] = acc
 
 applyMove :: Move -> GameState -> [GameState]
 applyMove R (G rows) =
-    map (replace [You, Crate, TargetEmpty] [Empty, You, TargetCrate] . replace [You, Crate, Empty] [Empty, You, Crate]) rows
-applyMove L (G rows) = map (replace [TargetEmpty, Crate, You] [TargetCrate, You, Empty] . replace [Empty, Crate, You] [Crate, You, Empty]) rows
+    [G $ map (replace [You, Empty] [Empty, You] . replace [You, Crate, TargetEmpty] [Empty, You, TargetCrate] . replace [You, Crate, Empty] [Empty, You, Crate]) rows]
+applyMove L (G rows) =
+    [G $ map (replace [Empty, You] [You, Empty] . replace [TargetEmpty, Crate, You] [TargetCrate, You, Empty] . replace [Empty, Crate, You] [Crate, You, Empty]) rows]
 applyMove _ _ = []
 
 isLost :: GameState -> Bool
