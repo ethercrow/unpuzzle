@@ -1,0 +1,11 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: debian:stretch
+    steps:
+      - checkout
+      - run: apt-get update
+      - run: apt-get install -y wget
+      - run: wget -qO- https://get.haskellstack.org/ | sh
+      - run: stack build --no-interleaved-output --fast

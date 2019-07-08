@@ -1,0 +1,51 @@
+name: unpuzzle
+version: 0.1.0
+synopsis: Intstead of playing puzzle games you can make your computer do it for you
+description: Please see README.md
+maintainer: Dmitry Ivanov <ethercrow@gmail.com>
+license: Apache-2.0
+github: ethercrow/unpuzzle
+category: Tools
+
+ghc-options: -Wall -ferror-spans
+
+dependencies:
+- base >= 4.9 && < 5
+- text
+- relude
+- containers
+
+library:
+  source-dirs: src
+
+executables:
+  unpuzzle-exe:
+    main: Main.hs
+    source-dirs: cli
+    dependencies:
+    - unpuzzle
+    - optparse-applicative
+
+tests:
+  tasty:
+    main: TestMain.hs
+    source-dirs: test
+    dependencies:
+    - unpuzzle
+    - hedgehog
+    - tasty
+    - tasty-discover
+
+
+default-extensions:
+- BlockArguments
+- DeriveGeneric
+- FlexibleInstances
+- LambdaCase
+- MultiParamTypeClasses
+- MultiWayIf
+- NoImplicitPrelude
+- RecordWildCards
+- ScopedTypeVariables
+- TupleSections
+- TypeApplications
