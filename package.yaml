@@ -7,13 +7,16 @@ license: Apache-2.0
 github: ethercrow/unpuzzle
 category: Tools
 
-ghc-options: -Wall -ferror-spans
+ghc-options:
+    -Wall
+    -ferror-spans
 
 dependencies:
 - base >= 4.9 && < 5
 - text
 - relude
 - containers
+- lens
 
 library:
   source-dirs: src
@@ -22,10 +25,15 @@ tests:
   tasty:
     main: TestDriver.hs
     source-dirs: test
+    ghc-options:
+        -Wno-missing-signatures
+        -Worphans
     dependencies:
     - unpuzzle
     - hedgehog
     - tasty
+    - tasty-hunit
+    - tasty-quickcheck
     - tasty-discover
 
 default-extensions:
@@ -36,7 +44,9 @@ default-extensions:
 - MultiParamTypeClasses
 - MultiWayIf
 - NoImplicitPrelude
+- OverloadedStrings
 - RecordWildCards
 - ScopedTypeVariables
 - TupleSections
 - TypeApplications
+- ViewPatterns
