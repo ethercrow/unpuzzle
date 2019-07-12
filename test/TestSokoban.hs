@@ -167,21 +167,21 @@ unit_soko_original_1_2 =
                 |]
     in 1 @=? length (take 1 $ solve level)
 
--- unit_soko_original_1_3 =
---     let level = parseState' [text|
---                     #####
---                     #   #
---                     #   #
---                   ###   ##
---                   #    $ #
---                 ### # ## #   ######
---                 #   # ## #####  ..#
---                 # $  $          ..#
---                 ##### ### #@##  ..#
---                     #     #########
---                     #######
---                 |]
---     in 1 @=? length (take 1 $ solve level)
+unit_soko_original_1_3 =
+    let level = parseState' [text|
+                    #####
+                    #   #
+                    #   #
+                  ###   ##
+                  #    $ #
+                ### # ## #   ######
+                #   # ## #####  ..#
+                # $  $          ..#
+                ##### ### #@##  ..#
+                    #     #########
+                    #######
+                |]
+    in 1 @=? length (take 1 $ solve level)
 
 -- unit_soko_original_1_4 =
 --     let level = parseState' [text|

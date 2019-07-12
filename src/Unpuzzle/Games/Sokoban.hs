@@ -72,25 +72,10 @@ possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g]
 
 applyMove :: Move -> GameState -> [GameState]
 
--- walking
 applyMove R g@(G {..})
     | playerX < levelWidth - 1
     && isEmpty g (playerX + 1) playerY
     = [G levelWidth levelHeight (playerX + 1) playerY cells crates corners]
-applyMove L g@(G {..})
-    | playerX > 0
-    && isEmpty g (playerX - 1) playerY
-    = [G levelWidth levelHeight (playerX - 1) playerY cells crates corners]
-applyMove D g@(G {..})
-    | playerY < levelHeight - 1
-    && isEmpty g playerX (playerY + 1)
-    = [G levelWidth levelHeight playerX (playerY + 1) cells crates corners]
-applyMove U g@(G {..})
-    | playerY > 0
-    && isEmpty g playerX (playerY - 1)
-    = [G levelWidth levelHeight playerX (playerY - 1) cells crates corners]
-
--- pushing
 applyMove R g@(G {..})
     | playerX < levelWidth - 2
     && isCrate g (playerX + 1) playerY
@@ -99,7 +84,12 @@ applyMove R g@(G {..})
             (cx, cy) | cx == playerX + 1, cy == playerY -> (cx + 1, cy)
             c -> c) crates
           g' = G levelWidth levelHeight (playerX + 1) playerY cells crates' corners
-    in [g' | not $ isLost g']
+    in [g' | not $ isStuck g' (playerX + 2) playerY]
+
+applyMove L g@(G {..})
+    | playerX > 0
+    && isEmpty g (playerX - 1) playerY
+    = [G levelWidth levelHeight (playerX - 1) playerY cells crates corners]
 applyMove L g@(G {..})
     | playerX > 1
     && isCrate g (playerX - 1) playerY
@@ -108,7 +98,12 @@ applyMove L g@(G {..})
             (cx, cy) | cx == playerX - 1, cy == playerY -> (cx - 1, cy)
             c -> c) crates
           g' = G levelWidth levelHeight (playerX - 1) playerY cells crates' corners
-    in [g' | not $ isLost g']
+    in [g' | not $ isStuck g' (playerX - 2) playerY]
+
+applyMove D g@(G {..})
+    | playerY < levelHeight - 1
+    && isEmpty g playerX (playerY + 1)
+    = [G levelWidth levelHeight playerX (playerY + 1) cells crates corners]
 applyMove D g@(G {..})
     | playerY < levelHeight - 2
     && isCrate g playerX (playerY + 1)
@@ -117,7 +112,12 @@ applyMove D g@(G {..})
             (cx, cy) | cx == playerX, cy == playerY + 1 -> (cx, cy + 1)
             c -> c) crates
           g' = G levelWidth levelHeight playerX (playerY + 1) cells crates' corners
-    in [g' | not $ isLost g']
+    in [g' | not $ isStuck g' playerX (playerY + 2)]
+
+applyMove U g@(G {..})
+    | playerY > 0
+    && isEmpty g playerX (playerY - 1)
+    = [G levelWidth levelHeight playerX (playerY - 1) cells crates corners]
 applyMove U g@(G {..})
     | playerY > 1
     && isCrate g playerX (playerY - 1)
@@ -126,34 +126,35 @@ applyMove U g@(G {..})
             (cx, cy) | cx == playerX, cy == playerY - 1 -> (cx, cy - 1)
             c -> c) crates
           g' = G levelWidth levelHeight playerX (playerY - 1) cells crates' corners
-    in [g' | not $ isLost g']
+    in [g' | not $ isStuck g' playerX (playerY - 2)]
 applyMove _ _ = []
 
 isLost :: GameState -> Bool
-isLost g@(G {..}) = V.any isStuck crates
-    where
-    isStuck (x, y) = 
-       (V.elem (x, y) corners)
-        ||
-       (x > 0 && y > 0
-        && isFull g x (y - 1)
-        && isFull g (x - 1) (y - 1)
-        && isFull g (x - 1) y)
-        ||
-       (x > 0 && y < levelHeight - 2
-        && isFull g x (y + 1)
-        && isFull g (x - 1) (y + 1)
-        && isFull g (x - 1) y)
-        ||
-       (x < levelWidth - 2 && y > 0 
-        && isFull g x (y - 1)
-        && isFull g (x + 1) (y - 1)
-        && isFull g (x + 1) y)
-        ||
-       (x < levelWidth - 2 && y < levelHeight - 2
-        && isFull g x (y + 1)
-        && isFull g (x + 1) (y + 1)
-        && isFull g (x + 1) y)
+isLost g = V.any (uncurry $ isStuck g) (crates g)
+
+isStuck :: GameState -> Int -> Int -> Bool
+isStuck g@(G {..}) x y = 
+   (V.elem (x, y) corners)
+    ||
+   (x > 0 && y > 0
+    && isFull g x (y - 1)
+    && isFull g (x - 1) (y - 1)
+    && isFull g (x - 1) y)
+    ||
+   (x > 0 && y < levelHeight - 2
+    && isFull g x (y + 1)
+    && isFull g (x - 1) (y + 1)
+    && isFull g (x - 1) y)
+    ||
+   (x < levelWidth - 2 && y > 0 
+    && isFull g x (y - 1)
+    && isFull g (x + 1) (y - 1)
+    && isFull g (x + 1) y)
+    ||
+   (x < levelWidth - 2 && y < levelHeight - 2
+    && isFull g x (y + 1)
+    && isFull g (x + 1) (y + 1)
+    && isFull g (x + 1) y)
 
 isWon :: GameState -> Bool
 isWon G {..} = V.all (\(x,y) -> TargetEmpty == cells V.! (y * levelWidth + x)) crates

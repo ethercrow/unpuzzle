@@ -10,6 +10,7 @@ category: Tools
 ghc-options:
     -Wall
     -ferror-spans
+    -rtsopts
 
 dependencies:
 - base >= 4.9 && < 5
