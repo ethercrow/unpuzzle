@@ -11,7 +11,7 @@ import NeatInterpolation
 import Test.Tasty.HUnit
 -- import Test.Tasty.QuickCheck
 
-import Unpuzzle.Generic
+import Unpuzzle.Generic (solve)
 import Unpuzzle.Games.Sokoban
 
 -- instance Arbitrary GameState where
@@ -23,6 +23,26 @@ import Unpuzzle.Games.Sokoban
 
 -- prop_parse_render_roundtrip :: GameState -> Property
 -- prop_parse_render_roundtrip s = parseState' (renderState s) === s
+
+unit_soko_won_1 =
+    let level = parseState' "#@00#"
+    in True @=? isWon level
+
+unit_soko_won_2 =
+    let level = parseState' "#@$ .#"
+    in False @=? isWon level
+
+unit_soko_lost_1 =
+    let level = parseState' "#@00#"
+    in False @=? isLost level
+
+unit_soko_lost_2 =
+    let level = parseState' [text|
+        ##
+        #$
+           @.
+        |]
+    in True @=? isLost level
 
 unit_soko_simple =
     let level = parseState' "#@$.#"
@@ -147,37 +167,37 @@ unit_soko_original_1_2 =
                 |]
     in 1 @=? length (take 1 $ solve level)
 
-unit_soko_original_1_3 =
-    let level = parseState' [text|
-                    #####
-                    #   #
-                    #   #
-                  ###   ##
-                  #    $ #
-                ### # ## #   ######
-                #   # ## #####  ..#
-                # $  $          ..#
-                ##### ### #@##  ..#
-                    #     #########
-                    #######
-                |]
-    in 1 @=? length (take 1 $ solve level)
+-- unit_soko_original_1_3 =
+--     let level = parseState' [text|
+--                     #####
+--                     #   #
+--                     #   #
+--                   ###   ##
+--                   #    $ #
+--                 ### # ## #   ######
+--                 #   # ## #####  ..#
+--                 # $  $          ..#
+--                 ##### ### #@##  ..#
+--                     #     #########
+--                     #######
+--                 |]
+--     in 1 @=? length (take 1 $ solve level)
 
-unit_soko_original_1_4 =
-    let level = parseState' [text|
-                    #####
-                    #   #
-                    #   #
-                  ###   ##
-                  #  $ $ #
-                ### # ## #   ######
-                #   # ## #####  ..#
-                # $  $          ..#
-                ##### ### #@##  ..#
-                    #     #########
-                    #######
-                |]
-    in 1 @=? length (take 1 $ solve level)
+-- unit_soko_original_1_4 =
+--     let level = parseState' [text|
+--                     #####
+--                     #   #
+--                     #   #
+--                   ###   ##
+--                   #  $ $ #
+--                 ### # ## #   ######
+--                 #   # ## #####  ..#
+--                 # $  $          ..#
+--                 ##### ### #@##  ..#
+--                     #     #########
+--                     #######
+--                 |]
+--     in 1 @=? length (take 1 $ solve level)
 
 -- unit_soko_original_1 =
 --     let level = parseState' [text|

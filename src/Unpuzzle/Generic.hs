@@ -5,7 +5,6 @@ import Relude
 
 class (Eq state, Hashable state) => Game state move | state -> move where
     isWon :: state -> Bool
-    isLost :: state -> Bool
     possibleMoves :: state -> [(move, state)]
 
 solve'bfs :: forall gstate move. (Game gstate move) => gstate -> [(gstate, [move])]
@@ -16,7 +15,7 @@ solve'bfs g0 = wave [(g0, [])] mempty
     wave front visited =
         let wins = filter (isWon . fst) front
             visited' = visited <> S.fromList (map fst front)
-            front' = [(s, m : ms) | (x, ms) <- front, (m, s) <- possibleMoves x, not (S.member s visited'), not (isLost x)]
+            front' = [(s, m : ms) | (x, ms) <- front, (m, s) <- possibleMoves x, not (S.member s visited')]
         in case wins of
             [] -> wave front' visited'
             _ -> trace ("Visited " <> show (length visited) <> " states") wins

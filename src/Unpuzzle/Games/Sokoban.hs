@@ -6,7 +6,7 @@ import qualified Data.Text as T
 import Data.Foldable (maximum)
 import qualified Data.Vector.Unboxed as V
 import Data.List (findIndex, (!!))
-import Data.Vector.Instances
+import Data.Vector.Instances ()
 
 import Unpuzzle.Generic
 
@@ -16,11 +16,20 @@ data GameState = G
     , playerX :: !Int
     , playerY :: !Int
     , cells :: V.Vector Int8
+    , crates :: V.Vector (Int, Int)
     }
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Show, Generic)
+
+instance Eq GameState where
+    g1 == g2 =
+        playerX g1 == playerX g2
+        &&
+        playerY g1 == playerY g2
+        &&
+        crates g1 == crates g2
 
 instance Hashable GameState where
-    hashWithSalt salt G {..} = hashWithSalt salt (playerX, playerY, V.filter (/= Wall) cells)
+    hashWithSalt salt G {..} = hashWithSalt salt (playerX, playerY, crates)
     {-# inline hashWithSalt #-}
 
 pattern Empty :: Int8
@@ -46,165 +55,122 @@ emptier Crate = Empty
 emptier TargetCrate = TargetEmpty
 emptier x = x
 
-isFull :: Cell -> Bool
-isFull Empty = False
-isFull TargetEmpty = False
-isFull _ = True
+isFull :: GameState -> Int -> Int -> Bool
+isFull g@(G {..}) x y = Wall == (cells V.! (playerY * levelWidth + playerX)) || isCrate g x y
 
-isEmpty :: Cell -> Bool
-isEmpty Empty = True
-isEmpty TargetEmpty = True
-isEmpty _ = False
+isEmpty :: GameState -> Int -> Int -> Bool
+isEmpty g x y = not $ isFull g x y
+
+isCrate :: GameState -> Int -> Int -> Bool
+isCrate G {..} x y = (x, y) `V.elem` crates
 
 data Move = R | U | L | D
   deriving (Eq, Ord, Show, Enum, Bounded, Generic)
 
 possibleMoves :: GameState -> [(Move, GameState)]
-possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g]
-
-replace :: Eq a => [a] -> [a] -> [a] -> [a]
-replace from to input = go [] input
-    where
-    go acc rest | from `isPrefixOf` rest = go (acc <> to) (drop (length from) rest)
-    go acc (c : rest) = go (acc <> [c]) rest
-    go acc [] = acc
+possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g, not $ isLost g']
 
 applyMove :: Move -> GameState -> [GameState]
 
 -- walking
-applyMove R G {..}
+applyMove R g@(G {..})
     | playerX < levelWidth - 1
-    && isEmpty (cells V.! (playerY * levelWidth + playerX + 1))
-    = [G levelWidth levelHeight (playerX + 1) playerY cells]
-applyMove L G {..}
+    && isEmpty g (playerX + 1) playerY
+    = [G levelWidth levelHeight (playerX + 1) playerY cells crates]
+applyMove L g@(G {..})
     | playerX > 0
-    && isEmpty (cells V.! (playerY * levelWidth + playerX - 1))
-    = [G levelWidth levelHeight (playerX - 1) playerY cells]
-applyMove D G {..}
+    && isEmpty g (playerX - 1) playerY
+    = [G levelWidth levelHeight (playerX - 1) playerY cells crates]
+applyMove D g@(G {..})
     | playerY < levelHeight - 1
-    && isEmpty (cells V.! ((playerY + 1) * levelWidth + playerX))
-    = [G levelWidth levelHeight playerX (playerY + 1) cells]
-applyMove U G {..}
+    && isEmpty g playerX (playerY + 1)
+    = [G levelWidth levelHeight playerX (playerY + 1) cells crates]
+applyMove U g@(G {..})
     | playerY > 0
-    && isEmpty (cells V.! ((playerY - 1) * levelWidth + playerX))
-    = [G levelWidth levelHeight playerX (playerY - 1) cells]
+    && isEmpty g playerX (playerY - 1)
+    = [G levelWidth levelHeight playerX (playerY - 1) cells crates]
 
 -- pushing
-applyMove R G {..}
+applyMove R g@(G {..})
     | playerX < levelWidth - 2
-    && elem (cells V.! (playerY * levelWidth + playerX + 1)) [Crate, TargetCrate]
-    && isEmpty (cells V.! (playerY * levelWidth + playerX + 2))
-    = let old_near = cells V.! (playerY * levelWidth + playerX + 1)
-          old_far = cells V.! (playerY * levelWidth + playerX + 2)
-          new_near = emptier old_near
-          new_far = fuller old_far
-          cells' = V.unsafeUpd cells
-            [ (playerY * levelWidth + playerX + 1, new_near)
-            , (playerY * levelWidth + playerX + 2, new_far)
-            ]
-    in [G levelWidth levelHeight (playerX + 1) playerY cells']
-applyMove L G {..}
+    && isCrate g (playerX + 1) playerY
+    && isEmpty g (playerX + 2) playerY
+    = let crates' = V.map (\case
+            (cx, cy) | cx == playerX + 1, cy == playerY -> (cx + 1, cy)
+            c -> c) crates
+    in [G levelWidth levelHeight (playerX + 1) playerY cells crates']
+applyMove L g@(G {..})
     | playerX > 1
-    && elem (cells V.! (playerY * levelWidth + playerX - 1)) [Crate, TargetCrate]
-    && isEmpty (cells V.! (playerY * levelWidth + playerX - 2))
-    = let old_near = cells V.! (playerY * levelWidth + playerX - 1)
-          old_far = cells V.! (playerY * levelWidth + playerX - 2)
-          new_near = emptier old_near
-          new_far = fuller old_far
-          cells' = V.unsafeUpd cells
-            [ (playerY * levelWidth + playerX - 1, new_near)
-            , (playerY * levelWidth + playerX - 2, new_far)
-            ]
-    in [G levelWidth levelHeight (playerX - 1) playerY cells']
-applyMove D G {..}
+    && isCrate g (playerX - 1) playerY
+    && isEmpty g (playerX - 2) playerY
+    = let crates' = V.map (\case
+            (cx, cy) | cx == playerX - 1, cy == playerY -> (cx - 1, cy)
+            c -> c) crates
+    in [G levelWidth levelHeight (playerX - 1) playerY cells crates']
+applyMove D g@(G {..})
     | playerY < levelHeight - 2
-    && elem (cells V.! ((playerY + 1) * levelWidth + playerX)) [Crate, TargetCrate]
-    && isEmpty (cells V.! ((playerY + 2) * levelWidth + playerX))
-    = let old_near = cells V.! ((playerY + 1) * levelWidth + playerX)
-          old_far = cells V.! ((playerY + 2) * levelWidth + playerX)
-          new_near = emptier old_near
-          new_far = fuller old_far
-          cells' = V.unsafeUpd cells
-            [ ((playerY + 1) * levelWidth + playerX, new_near)
-            , ((playerY + 2) * levelWidth + playerX, new_far)
-            ]
-    in [G levelWidth levelHeight playerX (playerY + 1) cells']
-applyMove U G {..}
+    && isCrate g playerX (playerY + 1)
+    && isEmpty g playerX (playerY + 2)
+    = let crates' = V.map (\case
+            (cx, cy) | cx == playerX, cy == playerY + 1 -> (cx, cy + 1)
+            c -> c) crates
+    in [G levelWidth levelHeight playerX (playerY + 1) cells crates']
+applyMove U g@(G {..})
     | playerY > 1
-    && elem (cells V.! ((playerY - 1) * levelWidth + playerX)) [Crate, TargetCrate]
-    && isEmpty (cells V.! ((playerY - 2) * levelWidth + playerX))
-    = let old_near = cells V.! ((playerY - 1) * levelWidth + playerX)
-          old_far = cells V.! ((playerY - 2) * levelWidth + playerX)
-          new_near = emptier old_near
-          new_far = fuller old_far
-          cells' = V.unsafeUpd cells
-            [ ((playerY - 1) * levelWidth + playerX, new_near)
-            , ((playerY - 2) * levelWidth + playerX, new_far)
-            ]
-    in [G levelWidth levelHeight playerX (playerY - 1) cells']
+    && isCrate g playerX (playerY - 1)
+    && isEmpty g playerX (playerY - 2)
+    = let crates' = V.map (\case
+            (cx, cy) | cx == playerX, cy == playerY - 1 -> (cx, cy - 1)
+            c -> c) crates
+    in [G levelWidth levelHeight playerX (playerY - 1) cells crates']
 applyMove _ _ = []
 
 isLost :: GameState -> Bool
-isLost G {..} = V.any identity $ V.imap foo cells
+isLost g@(G {..}) = V.any isStuck crates
     where
-    foo i Crate =
-        let (y, x) = i `quotRem` levelWidth
-        in (x > 0 && y > 0
-            && Wall == cells V.! ((y - 1) * levelWidth + x) 
-            && Wall == cells V.! (y * levelWidth + (x - 1)))
-            ||
-           (x > 0 && y < levelHeight - 2
-            && Wall == cells V.! ((y + 1) * levelWidth + x) 
-            && Wall == cells V.! (y * levelWidth + (x - 1)))
-            ||
-           (x < levelWidth - 2 && y > 0 
-            && Wall == cells V.! ((y - 1) * levelWidth + x) 
-            && Wall == cells V.! (y * levelWidth + (x + 1)))
-            ||
-           (x < levelWidth - 2 && y < levelHeight - 2
-            && Wall == cells V.! ((y + 1) * levelWidth + x) 
-            && Wall == cells V.! (y * levelWidth + (x + 1)))
-            ||
-           (x > 0 && y > 0
-            && isFull (cells V.! ((y - 1) * levelWidth + x)) 
-            && isFull (cells V.! ((y - 1) * levelWidth + (x - 1)))
-            && isFull (cells V.! (y * levelWidth + (x - 1))))
-            ||
-           (x > 0 && y < levelHeight - 2
-            && isFull (cells V.! ((y + 1) * levelWidth + x))
-            && isFull (cells V.! ((y + 1) * levelWidth + (x - 1)))
-            && isFull (cells V.! (y * levelWidth + (x - 1))))
-            ||
-           (x < levelWidth - 2 && y > 0 
-            && isFull (cells V.! ((y - 1) * levelWidth + x))
-            && isFull (cells V.! ((y - 1) * levelWidth + (x + 1)))
-            && isFull (cells V.! (y * levelWidth + (x + 1))))
-            ||
-           (x < levelWidth - 2 && y < levelHeight - 2
-            && isFull (cells V.! ((y + 1) * levelWidth + x))
-            && isFull (cells V.! ((y + 1) * levelWidth + (x + 1)))
-            && isFull (cells V.! (y * levelWidth + (x + 1))))
-    foo _ _ = False
+    isStuck (x, y) = 
+       (x > 0 && y > 0
+        && Wall == cells V.! ((y - 1) * levelWidth + x) 
+        && Wall == cells V.! (y * levelWidth + (x - 1)))
+        ||
+       (x > 0 && y < levelHeight - 2
+        && Wall == cells V.! ((y + 1) * levelWidth + x) 
+        && Wall == cells V.! (y * levelWidth + (x - 1)))
+        ||
+       (x < levelWidth - 2 && y > 0 
+        && Wall == cells V.! ((y - 1) * levelWidth + x) 
+        && Wall == cells V.! (y * levelWidth + (x + 1)))
+        ||
+       (x < levelWidth - 2 && y < levelHeight - 2
+        && Wall == cells V.! ((y + 1) * levelWidth + x) 
+        && Wall == cells V.! (y * levelWidth + (x + 1)))
+        ||
+       (x > 0 && y > 0
+        && isFull g x (y - 1)
+        && isFull g (x - 1) (y - 1)
+        && isFull g (x - 1) y)
+        ||
+       (x > 0 && y < levelHeight - 2
+        && isFull g x (y + 1)
+        && isFull g (x - 1) (y + 1)
+        && isFull g (x - 1) y)
+        ||
+       (x < levelWidth - 2 && y > 0 
+        && isFull g x (y - 1)
+        && isFull g (x + 1) (y - 1)
+        && isFull g (x + 1) y)
+        ||
+       (x < levelWidth - 2 && y < levelHeight - 2
+        && isFull g x (y + 1)
+        && isFull g (x + 1) (y + 1)
+        && isFull g (x + 1) y)
 
 isWon :: GameState -> Bool
-isWon G {..} = not $ V.any (== Crate) cells
+isWon G {..} = V.all (\(x,y) -> TargetEmpty == cells V.! (y * levelWidth + x)) crates
 
 instance Game GameState Move where
     isWon = Unpuzzle.Games.Sokoban.isWon
-    isLost = Unpuzzle.Games.Sokoban.isLost
     possibleMoves = Unpuzzle.Games.Sokoban.possibleMoves
-
--- renderState :: GameState -> Text
--- renderState G{..} = unlines $ map renderRow (r:rest)
-
--- renderRow :: Vector Cell -> Text
--- renderRow = T.pack . map \case
---     You -> '@'
---     Wall -> '#'
---     Crate -> '$'
---     TargetEmpty -> '.'
---     TargetCrate -> '0'
---     Empty -> ' '
 
 parseState' :: Text -> GameState
 parseState' (lines -> rows) = G {..}
@@ -213,7 +179,12 @@ parseState' (lines -> rows) = G {..}
     levelHeight = length rows
     Just playerY = findIndex ("@" `T.isInfixOf`) rows
     Just playerX = T.findIndex (== '@') (rows !! playerY)
-    cells = V.fromList (concatMap (map f . T.unpack . rightPad) rows)
+    cells' = V.fromList (concatMap (map f . T.unpack . rightPad) rows)
+    crates = V.map (swap . (`quotRem` levelWidth)) $ V.findIndices (`elem` [Crate, TargetCrate]) cells'
+    cells = V.map (\case
+        Crate -> Empty
+        TargetCrate -> TargetEmpty
+        x -> x) cells'
     rightPad t = t <> T.replicate (levelWidth - T.length t) "#"
     f '@' = Empty
     f '#' = Wall
