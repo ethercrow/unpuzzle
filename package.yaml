@@ -17,6 +17,8 @@ dependencies:
 - relude
 - containers
 - lens
+- neat-interpolation
+- vector
 
 library:
   source-dirs: src

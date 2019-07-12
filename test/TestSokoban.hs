@@ -1,26 +1,194 @@
+{-# language QuasiQuotes #-}
+
 module TestSokoban where
 
 import Relude
-import Relude.Extra.Enum
+-- import Relude.Extra.Enum
 
-import Test.Tasty
+import NeatInterpolation
+
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
+-- import Test.Tasty.QuickCheck
 
 import Unpuzzle.Games.Sokoban
 
-unit_soko_1r = solve (G [[You, Crate, TargetEmpty]]) @=? [(G [[Empty, You, TargetCrate]], [R])]
+-- instance Arbitrary GameState where
+--     arbitrary = do
+--         w <- choose (3, 20)
+--         h <- choose (3, 20)
+--         rows <- replicateM h (T.pack <$> replicateM w (elements "@$. #"))
+--         G <$> arbitrary <*> pure rows
 
-unit_soko_1d = solve (G [[You], [Crate], [TargetEmpty]]) @=? [(G [[Empty], [You], [TargetCrate]], [D])]
+-- prop_parse_render_roundtrip :: GameState -> Property
+-- prop_parse_render_roundtrip s = parseState' (renderState s) === s
 
-instance Arbitrary Cell where
-    arbitrary = elements universe
+unit_soko_simple =
+    let level = parseState' "#@$.#"
+    in length (take 1 $ solve level) @=? 1
 
-instance Arbitrary GameState where
-    arbitrary = do
-        w <- choose (3, 20)
-        h <- choose (3, 20)
-        G <$> (replicateM h $ replicateM w arbitrary)
+unit_soko_simple_2 =
+    let level = parseState' "#@ $.#"
+    in length (take 1 $ solve level) @=? 1
 
-prop_parse_render_roundtrip :: GameState -> Property
-prop_parse_render_roundtrip s = parseState' (renderState s) === s
+unit_soko_simple_3 =
+    let level = parseState' "#. $@#"
+    in length (take 1 $ solve level) @=? 1
+
+unit_soko_simple_4 =
+    let level = parseState' ".$@"
+    in length (take 1 $ solve level) @=? 1
+
+unit_soko_simple_5 =
+    let level = parseState' "@$."
+    in length (take 1 $ solve level) @=? 1
+
+unit_soko_simple_vertical =
+    let level = parseState' [text|
+        ###
+        #@#
+        #$#
+        #.#
+        ###
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_vertical_2 =
+    let level = parseState' [text|
+        ###
+        #@#
+        # #
+        #$#
+        # #
+        #.#
+        ###
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_vertical_3 =
+    let level = parseState' [text|
+        #.#
+        # #
+        #$#
+        #@#
+        ###
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_vertical_5 =
+    let level = parseState' [text|
+        .
+        $
+         
+        @
+        #
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_vertical_4 =
+    let level = parseState' [text|
+        #.#
+        # #
+        #$#
+        # #
+        #@#
+        ###
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_corners =
+    let level = parseState' [text|
+        #####
+        # $.#
+        # #
+        #@#
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_simple_corners_2 =
+    let level = parseState' [text|
+        #####
+        #   #
+        # #$#
+        #@#.#
+        |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_original_1_1 =
+    let level = parseState' [text|
+                    #####
+                    #   #
+                    #   #
+                  ###   ##
+                  #      #
+                ### # ## #   ######
+                #   # ## #####  ..#
+                #    $          ..#
+                ##### ### #@##  ..#
+                    #     #########
+                    #######
+                |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_original_1_2 =
+    let level = parseState' [text|
+                    #####
+                    #   #
+                    #   #
+                  ###   ##
+                  #      #
+                ### # ## #   ######
+                #   # ## #####  ..#
+                # $  $          ..#
+                ##### ### #@##  ..#
+                    #     #########
+                    #######
+                |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_original_1_3 =
+    let level = parseState' [text|
+                    #####
+                    #   #
+                    #   #
+                  ###   ##
+                  #    $ #
+                ### # ## #   ######
+                #   # ## #####  ..#
+                # $  $          ..#
+                ##### ### #@##  ..#
+                    #     #########
+                    #######
+                |]
+    in 1 @=? length (take 1 $ solve level)
+
+unit_soko_original_1_4 =
+    let level = parseState' [text|
+                    #####
+                    #   #
+                    #   #
+                  ###   ##
+                  #  $ $ #
+                ### # ## #   ######
+                #   # ## #####  ..#
+                # $  $          ..#
+                ##### ### #@##  ..#
+                    #     #########
+                    #######
+                |]
+    in 1 @=? length (take 1 $ solve level)
+
+-- unit_soko_original_1 =
+--     let level = parseState' [text|
+--                     #####
+--                     #   #
+--                     #$  #
+--                   ###  $##
+--                   #  $ $ #
+--                 ### # ## #   ######
+--                 #   # ## #####  ..#
+--                 # $  $          ..#
+--                 ##### ### #@##  ..#
+--                     #     #########
+--                     #######
+--                 |]
+--     in 1 @=? length (take 1 $ solve level)
