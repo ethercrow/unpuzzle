@@ -1,29 +1,40 @@
 module Unpuzzle.Games.Sokoban where
 
-import qualified Data.Set as S
 import Relude
 import Relude.Extra.Enum
 import qualified Data.Text as T
 import Data.Foldable (maximum)
-import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as V
 import Data.List (findIndex, (!!))
+import Data.Vector.Instances
+
+import Unpuzzle.Generic
 
 data GameState = G
     { levelWidth :: !Int
     , levelHeight :: !Int
     , playerX :: !Int
     , playerY :: !Int
-    , cells :: V.Vector Cell
+    , cells :: V.Vector Int8
     }
   deriving (Eq, Ord, Show, Generic)
 
-data Cell
-  = Wall
-  | Empty
-  | Crate
-  | TargetEmpty
-  | TargetCrate
-  deriving (Eq, Ord, Show, Generic, Bounded, Enum)
+instance Hashable GameState where
+    hashWithSalt salt G {..} = hashWithSalt salt (playerX, playerY, V.filter (/= Wall) cells)
+    {-# inline hashWithSalt #-}
+
+pattern Empty :: Int8
+pattern Empty = 0
+pattern Wall :: Int8
+pattern Wall = 1
+pattern Crate :: Int8
+pattern Crate = 2
+pattern TargetEmpty :: Int8
+pattern TargetEmpty = 3
+pattern TargetCrate :: Int8
+pattern TargetCrate = 4
+
+type Cell = Int8
 
 fuller :: Cell -> Cell
 fuller Empty = Crate
@@ -48,8 +59,8 @@ isEmpty _ = False
 data Move = R | U | L | D
   deriving (Eq, Ord, Show, Enum, Bounded, Generic)
 
-reachableStates :: GameState -> [(Move, GameState)]
-reachableStates g = [(m, g') | m <- universe, g' <- applyMove m g]
+possibleMoves :: GameState -> [(Move, GameState)]
+possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g]
 
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace from to input = go [] input
@@ -153,38 +164,35 @@ isLost G {..} = V.any identity $ V.imap foo cells
            (x < levelWidth - 2 && y < levelHeight - 2
             && Wall == cells V.! ((y + 1) * levelWidth + x) 
             && Wall == cells V.! (y * levelWidth + (x + 1)))
+            ||
+           (x > 0 && y > 0
+            && isFull (cells V.! ((y - 1) * levelWidth + x)) 
+            && isFull (cells V.! ((y - 1) * levelWidth + (x - 1)))
+            && isFull (cells V.! (y * levelWidth + (x - 1))))
+            ||
+           (x > 0 && y < levelHeight - 2
+            && isFull (cells V.! ((y + 1) * levelWidth + x))
+            && isFull (cells V.! ((y + 1) * levelWidth + (x - 1)))
+            && isFull (cells V.! (y * levelWidth + (x - 1))))
+            ||
+           (x < levelWidth - 2 && y > 0 
+            && isFull (cells V.! ((y - 1) * levelWidth + x))
+            && isFull (cells V.! ((y - 1) * levelWidth + (x + 1)))
+            && isFull (cells V.! (y * levelWidth + (x + 1))))
+            ||
+           (x < levelWidth - 2 && y < levelHeight - 2
+            && isFull (cells V.! ((y + 1) * levelWidth + x))
+            && isFull (cells V.! ((y + 1) * levelWidth + (x + 1)))
+            && isFull (cells V.! (y * levelWidth + (x + 1))))
     foo _ _ = False
 
 isWon :: GameState -> Bool
-isWon G {..} =
-  null $
-    V.filter
-      (== Crate)
-      cells
+isWon G {..} = not $ V.any (== Crate) cells
 
-solve'dfs :: GameState -> [(GameState, [Move])]
-solve'dfs g0 = go [] mempty g0
-  where
-    go :: [Move] -> S.Set GameState -> GameState -> [(GameState, [Move])]
-    go _ visited g | S.member g visited = []
-    go moves _ g | isWon g = [(g, moves)]
-    go _ _ g | isLost g = []
-    go moves visited g =
-      let visited' = S.singleton g <> visited
-       in concatMap (\(m_, g_) -> go (m_ : moves) visited' g_) (reachableStates g)
-
-solve :: GameState -> [(GameState, [Move])]
-solve g0 = wave [(g0, [])] mempty
-  where
-    wave :: [(GameState, [Move])] -> Set GameState -> [(GameState, [Move])]
-    wave [] _visited = []
-    wave front visited =
-        let wins = filter (isWon . fst) front
-            visited' = visited <> S.fromList (map fst front)
-            front' = [(s, m : ms) | (x, ms) <- front, m <- universe, s <- applyMove m x, not (S.member s visited'), not (isLost x)]
-        in case wins of
-            [] -> wave front' visited'
-            _ -> trace ("Visited " <> show (length visited) <> " states") wins
+instance Game GameState Move where
+    isWon = Unpuzzle.Games.Sokoban.isWon
+    isLost = Unpuzzle.Games.Sokoban.isLost
+    possibleMoves = Unpuzzle.Games.Sokoban.possibleMoves
 
 -- renderState :: GameState -> Text
 -- renderState G{..} = unlines $ map renderRow (r:rest)

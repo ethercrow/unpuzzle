@@ -2,7 +2,8 @@
 
 module TestSokoban where
 
-import Relude
+import Relude hiding (head)
+import Relude.Unsafe
 -- import Relude.Extra.Enum
 
 import NeatInterpolation
@@ -10,6 +11,7 @@ import NeatInterpolation
 import Test.Tasty.HUnit
 -- import Test.Tasty.QuickCheck
 
+import Unpuzzle.Generic
 import Unpuzzle.Games.Sokoban
 
 -- instance Arbitrary GameState where
@@ -24,7 +26,7 @@ import Unpuzzle.Games.Sokoban
 
 unit_soko_simple =
     let level = parseState' "#@$.#"
-    in length (take 1 $ solve level) @=? 1
+    in [R] @=? snd (head $ solve level)
 
 unit_soko_simple_2 =
     let level = parseState' "#@ $.#"
