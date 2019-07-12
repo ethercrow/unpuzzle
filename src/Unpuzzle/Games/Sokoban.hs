@@ -17,6 +17,7 @@ data GameState = G
     , playerY :: !Int
     , cells :: V.Vector Int8
     , crates :: V.Vector (Int, Int)
+    , corners :: V.Vector (Int, Int)
     }
   deriving (Show, Generic)
 
@@ -45,30 +46,29 @@ pattern TargetCrate = 4
 
 type Cell = Int8
 
-fuller :: Cell -> Cell
-fuller Empty = Crate
-fuller TargetEmpty = TargetCrate
-fuller x = x
-
-emptier :: Cell -> Cell
-emptier Crate = Empty
-emptier TargetCrate = TargetEmpty
-emptier x = x
-
 isFull :: GameState -> Int -> Int -> Bool
-isFull g@(G {..}) x y = Wall == (cells V.! (playerY * levelWidth + playerX)) || isCrate g x y
+isFull g@(G {..}) x y = isWall g x y || isCrate g x y
+{-# inline isFull #-}
+
+isWall :: GameState -> Int -> Int -> Bool
+isWall G {..} x y = case cells V.! (y * levelWidth + x) of
+    Wall -> True
+    _ -> False
+{-# inline isWall #-}
 
 isEmpty :: GameState -> Int -> Int -> Bool
 isEmpty g x y = not $ isFull g x y
+{-# inline isEmpty #-}
 
 isCrate :: GameState -> Int -> Int -> Bool
 isCrate G {..} x y = (x, y) `V.elem` crates
+{-# inline isCrate #-}
 
 data Move = R | U | L | D
   deriving (Eq, Ord, Show, Enum, Bounded, Generic)
 
 possibleMoves :: GameState -> [(Move, GameState)]
-possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g, not $ isLost g']
+possibleMoves g = [(m, g') | m <- universe, g' <- applyMove m g]
 
 applyMove :: Move -> GameState -> [GameState]
 
@@ -76,19 +76,19 @@ applyMove :: Move -> GameState -> [GameState]
 applyMove R g@(G {..})
     | playerX < levelWidth - 1
     && isEmpty g (playerX + 1) playerY
-    = [G levelWidth levelHeight (playerX + 1) playerY cells crates]
+    = [G levelWidth levelHeight (playerX + 1) playerY cells crates corners]
 applyMove L g@(G {..})
     | playerX > 0
     && isEmpty g (playerX - 1) playerY
-    = [G levelWidth levelHeight (playerX - 1) playerY cells crates]
+    = [G levelWidth levelHeight (playerX - 1) playerY cells crates corners]
 applyMove D g@(G {..})
     | playerY < levelHeight - 1
     && isEmpty g playerX (playerY + 1)
-    = [G levelWidth levelHeight playerX (playerY + 1) cells crates]
+    = [G levelWidth levelHeight playerX (playerY + 1) cells crates corners]
 applyMove U g@(G {..})
     | playerY > 0
     && isEmpty g playerX (playerY - 1)
-    = [G levelWidth levelHeight playerX (playerY - 1) cells crates]
+    = [G levelWidth levelHeight playerX (playerY - 1) cells crates corners]
 
 -- pushing
 applyMove R g@(G {..})
@@ -98,7 +98,8 @@ applyMove R g@(G {..})
     = let crates' = V.map (\case
             (cx, cy) | cx == playerX + 1, cy == playerY -> (cx + 1, cy)
             c -> c) crates
-    in [G levelWidth levelHeight (playerX + 1) playerY cells crates']
+          g' = G levelWidth levelHeight (playerX + 1) playerY cells crates' corners
+    in [g' | not $ isLost g']
 applyMove L g@(G {..})
     | playerX > 1
     && isCrate g (playerX - 1) playerY
@@ -106,7 +107,8 @@ applyMove L g@(G {..})
     = let crates' = V.map (\case
             (cx, cy) | cx == playerX - 1, cy == playerY -> (cx - 1, cy)
             c -> c) crates
-    in [G levelWidth levelHeight (playerX - 1) playerY cells crates']
+          g' = G levelWidth levelHeight (playerX - 1) playerY cells crates' corners
+    in [g' | not $ isLost g']
 applyMove D g@(G {..})
     | playerY < levelHeight - 2
     && isCrate g playerX (playerY + 1)
@@ -114,7 +116,8 @@ applyMove D g@(G {..})
     = let crates' = V.map (\case
             (cx, cy) | cx == playerX, cy == playerY + 1 -> (cx, cy + 1)
             c -> c) crates
-    in [G levelWidth levelHeight playerX (playerY + 1) cells crates']
+          g' = G levelWidth levelHeight playerX (playerY + 1) cells crates' corners
+    in [g' | not $ isLost g']
 applyMove U g@(G {..})
     | playerY > 1
     && isCrate g playerX (playerY - 1)
@@ -122,28 +125,15 @@ applyMove U g@(G {..})
     = let crates' = V.map (\case
             (cx, cy) | cx == playerX, cy == playerY - 1 -> (cx, cy - 1)
             c -> c) crates
-    in [G levelWidth levelHeight playerX (playerY - 1) cells crates']
+          g' = G levelWidth levelHeight playerX (playerY - 1) cells crates' corners
+    in [g' | not $ isLost g']
 applyMove _ _ = []
 
 isLost :: GameState -> Bool
 isLost g@(G {..}) = V.any isStuck crates
     where
     isStuck (x, y) = 
-       (x > 0 && y > 0
-        && Wall == cells V.! ((y - 1) * levelWidth + x) 
-        && Wall == cells V.! (y * levelWidth + (x - 1)))
-        ||
-       (x > 0 && y < levelHeight - 2
-        && Wall == cells V.! ((y + 1) * levelWidth + x) 
-        && Wall == cells V.! (y * levelWidth + (x - 1)))
-        ||
-       (x < levelWidth - 2 && y > 0 
-        && Wall == cells V.! ((y - 1) * levelWidth + x) 
-        && Wall == cells V.! (y * levelWidth + (x + 1)))
-        ||
-       (x < levelWidth - 2 && y < levelHeight - 2
-        && Wall == cells V.! ((y + 1) * levelWidth + x) 
-        && Wall == cells V.! (y * levelWidth + (x + 1)))
+       (V.elem (x, y) corners)
         ||
        (x > 0 && y > 0
         && isFull g x (y - 1)
@@ -173,8 +163,9 @@ instance Game GameState Move where
     possibleMoves = Unpuzzle.Games.Sokoban.possibleMoves
 
 parseState' :: Text -> GameState
-parseState' (lines -> rows) = G {..}
+parseState' (lines -> rows) = g
     where
+    g = G {..}
     levelWidth = maximum (map T.length rows)
     levelHeight = length rows
     Just playerY = findIndex ("@" `T.isInfixOf`) rows
@@ -185,6 +176,27 @@ parseState' (lines -> rows) = G {..}
         Crate -> Empty
         TargetCrate -> TargetEmpty
         x -> x) cells'
+    isCorner ((x, y), Empty) =
+       (x > 0 && y > 0
+        && isWall g x (y - 1)
+        && isWall g (x - 1) y)
+        ||
+       (x > 0 && y < levelHeight - 2
+        && isWall g x (y + 1)
+        && isWall g (x - 1) y)
+        ||
+       (x < levelWidth - 2 && y > 0 
+        && isWall g x (y - 1)
+        && isWall g (x + 1) y)
+        ||
+       (x < levelWidth - 2 && y < levelHeight - 2
+        && isWall g x (y + 1)
+        && isWall g (x + 1) y)
+    isCorner _ = False
+    corners =
+        V.map fst
+        $ V.filter isCorner
+        $ V.imap (\i c -> (swap (i `quotRem` levelWidth), c)) cells
     rightPad t = t <> T.replicate (levelWidth - T.length t) "#"
     f '@' = Empty
     f '#' = Wall
