@@ -32,18 +32,6 @@ unit_soko_won_2 =
     let level = parseState' "#@$ .#"
     in False @=? isWon level
 
-unit_soko_lost_1 =
-    let level = parseState' "#@00#"
-    in False @=? isLost level
-
-unit_soko_lost_2 =
-    let level = parseState' [text|
-        ##
-        #$
-           @.
-        |]
-    in True @=? isLost level
-
 unit_soko_simple =
     let level = parseState' "#@$.#"
     in [R] @=? snd (head $ solve level)
