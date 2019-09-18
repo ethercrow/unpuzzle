@@ -4,7 +4,35 @@ on: [push]
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install stack
+      run: curl -sSL https://get.haskellstack.org/ | sh
+    - name: Install GHC
+      run: stack setup
+    - name: Build
+      run: |
+        stack build
+    - name: Run tests
+      run: stack test
+
+  build-windows:
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install stack
+      run: curl -sSL https://get.haskellstack.org/ | sh
+    - name: Install GHC
+      run: stack setup
+    - name: Build
+      run: |
+        stack build
+    - name: Run tests
+      run: stack test
+
+  build-mac:
+    runs-on: macOS-10.14
     steps:
     - uses: actions/checkout@v1
     - name: Install stack
