@@ -13,6 +13,7 @@ jobs:
       run: stack setup
     - name: Install C dependencies
       run: |
+        sudo apt-get update -q
         sudo apt-get install -yq sdl2
     - name: Build
       run: |
