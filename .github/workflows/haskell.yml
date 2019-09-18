@@ -11,6 +11,9 @@ jobs:
       run: curl -sSL https://get.haskellstack.org/ | sh
     - name: Install GHC
       run: stack setup
+    - name: Install C dependencies
+      run: |
+        apt-get install -yq sdl2
     - name: Build
       run: |
         stack build --fast
@@ -23,6 +26,18 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install stack
       run: curl -sSL https://get.haskellstack.org/ | sh
+    - name: Install C dependencies
+      run: |
+        stack exec -- pacman --noconfirm -Syu
+
+        stack exec -- pacman --noconfirm -S \
+          mingw64/mingw-w64-x86_64-pkg-config \
+          mingw64/mingw-w64-x86_64-SDL2 \
+          mingw64/mingw-w64-x86_64-SDL2_ttf \
+          mingw64/mingw-w64-x86_64-SDL2_image \
+          mingw64/mingw-w64-x86_64-SDL2_mixer
+
+        stack exec -- which pacman
     - name: Install GHC
       run: stack setup
     - name: Build
@@ -37,6 +52,9 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install stack
       run: curl -sSL https://get.haskellstack.org/ | sh
+    - name: Install C dependencies
+      run: |
+        brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf pkg-config
     - name: Install GHC
       run: stack setup
     - name: Build
